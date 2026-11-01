@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Golf Coach – Zustimmung</title>
+<style>
+  :root { --turf:#14402F; --green:#1F5C45; --flag:#F2C230; --ink:#18291F; --soft:#4A5B51; --dew:#EDF1EB; --paper:#FAFBF8; --line:#CCD6CE; --danger:#C2412D; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--dew); color: var(--ink); line-height:1.55; }
+  header { background: var(--turf); color:#fff; padding: 40px 20px 32px; }
+  header .wrap, main { max-width: 640px; margin: 0 auto; }
+  .flag { display:inline-block; background: var(--flag); color: var(--ink); font-weight:700; border-radius:10px; padding:4px 10px; font-size:14px; }
+  h1 { font-size: 30px; margin: 14px 0 6px; letter-spacing: -0.5px; }
+  header p { margin:0; opacity:.85; }
+  main { padding: 24px 20px 48px; }
+  .card { background: var(--paper); border:1px solid var(--line); border-radius:18px; padding:18px 20px; margin-bottom:16px; }
+  ul { padding-left: 20px; margin: 8px 0; }
+  .actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; }
+  button { font: inherit; font-weight:700; border-radius:999px; padding:14px 22px; border:2px solid var(--green); cursor:pointer; }
+  .yes { background: var(--flag); border-color: var(--flag); color: var(--ink); flex: 2; }
+  .no { background: transparent; color: var(--green); flex: 1; }
+  button:disabled { opacity:.5; cursor: default; }
+  .msg { font-weight:600; }
+  .err { color: var(--danger); }
+  .small { font-size: 13px; color: var(--soft); }
+  a { color: var(--green); }
+</style>
+</head>
+<body>
+<header><div class="wrap"><span class="flag">Golf Coach</span><h1 id="title">Zustimmung der Eltern</h1><p id="subtitle"></p></div></header>
+<main>
+  <div class="card" id="info"></div>
+  <div class="card" id="box"><p class="msg" id="status">…</p><div class="actions" id="actions" hidden><button class="yes" id="grant"></button><button class="no" id="deny"></button></div></div>
+  <p class="small" id="foot"></p>
+</main>
+<script>
+  const T = {
+    de: {
+      title: 'Zustimmung der Eltern',
+      subtitle: (n) => n ? `${n} möchte Golf Coach nutzen.` : 'Ihr Kind möchte Golf Coach nutzen.',
+      info: `<p><b>Was ist Golf Coach?</b> Eine Golf-Trainings-App mit Schwunganalyse per Video, Trainings- und Fitnessplänen, Ernährungs-Tracking sowie Atemübungen und Meditationen.</p>
+        <p><b>Welche Daten werden verarbeitet?</b></p>
+        <ul><li>Konto (E-Mail) und Profil (Vorname, Geburtsdatum, Größe, Gewicht, Ziele, Handicap)</li>
+        <li>Trainings- und Ernährungseinträge, die Ihr Kind selbst macht</li>
+        <li>Nur mit gesonderter Einwilligung: Einzelbilder aus Schwungvideos, Essensfotos und Screenshots zur Auswertung durch einen KI-Dienst (Anthropic, USA)</li></ul>
+        <p><b>Schutz für Jugendliche:</b> keine Abnehm- oder Diätpläne unter 18 Jahren, keine Werbung, kein Tracking. Daten werden in der EU gespeichert und können jederzeit in der App gelöscht werden.</p>`,
+      ask: 'Stimmen Sie zu, dass Ihr Kind Golf Coach nutzt und die genannten Daten verarbeitet werden?',
+      grant: 'Ja, ich stimme zu', deny: 'Nein',
+      granted: 'Vielen Dank! Ihre Zustimmung wurde gespeichert. Ihr Kind kann Golf Coach jetzt nutzen.',
+      denied: 'Ihre Ablehnung wurde gespeichert. Ihr Kind kann Golf Coach ohne Ihre Zustimmung nicht nutzen.',
+      expired: 'Dieser Link ist abgelaufen. Bitten Sie Ihr Kind, in der App eine neue E-Mail anzufordern.',
+      invalid: 'Dieser Link ist ungültig.', error: 'Etwas ist schiefgelaufen. Bitte versuchen Sie es später erneut.',
+      foot: 'Sie können Ihre Zustimmung jederzeit widerrufen. Mehr in der Datenschutzerklärung der App.'
+    },
+    en: {
+      title: "Parent's consent",
+      subtitle: (n) => n ? `${n} would like to use Golf Coach.` : 'Your child would like to use Golf Coach.',
+      info: `<p><b>What is Golf Coach?</b> A golf training app with video swing analysis, training and fitness plans, nutrition tracking, breathing exercises and meditations.</p>
+        <p><b>What data is processed?</b></p>
+        <ul><li>Account (email) and profile (first name, date of birth, height, weight, goals, handicap)</li>
+        <li>Training and nutrition entries your child makes</li>
+        <li>Only with separate consent: still frames from swing videos, food photos and screenshots analysed by an AI service (Anthropic, USA)</li></ul>
+        <p><b>Protection for teenagers:</b> no weight-loss or diet plans under 18, no ads, no tracking. Data is stored in the EU and can be deleted in the app at any time.</p>`,
+      ask: 'Do you agree that your child uses Golf Coach and that the data described is processed?',
+      grant: 'Yes, I agree', deny: 'No',
+      granted: 'Thank you! Your consent has been saved. Your child can now use Golf Coach.',
+      denied: 'Your refusal has been saved. Your child cannot use Golf Coach without your consent.',
+      expired: 'This link has expired. Please ask your child to request a new email in the app.',
+      invalid: 'This link is not valid.', error: 'Something went wrong. Please try again later.',
+      foot: "You can withdraw your consent at any time. More in the app's privacy policy."
+    }
+  };
+  const q = new URLSearchParams(location.search);
+  const token = q.get('token') || '';
+  const api = (q.get('api') || '').replace(/\/$/, '');
+  let lang = q.get('lang') === 'en' ? 'en' : 'de';
+  const $ = (id) => document.getElementById(id);
+  const call = (payload) => fetch(`${api}/functions/v1/parent-consent-confirm`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ token, ...payload }) }).then(async (r) => ({ ok: r.ok, data: await r.json().catch(() => ({})) }));
+  function render(child) {
+    const t = T[lang];
+    document.documentElement.lang = lang;
+    $('title').textContent = t.title; $('subtitle').textContent = t.subtitle(child);
+    $('info').innerHTML = t.info; $('grant').textContent = t.grant; $('deny').textContent = t.deny; $('foot').textContent = t.foot;
+  }
+  function show(text, isError) { $('status').textContent = text; $('status').className = 'msg' + (isError ? ' err' : ''); $('actions').hidden = true; }
+  async function init() {
+    render(null);
+    if (!/^[a-f0-9]{64}$/.test(token) || !/^https:\/\//.test(api)) return show(T[lang].invalid, true);
+    const { ok, data } = await call({ action: 'info' }).catch(() => ({ ok: false, data: {} }));
+    if (!ok) return show(T[lang].invalid, true);
+    if (data.language === 'en' || data.language === 'de') lang = data.language;
+    render(data.child);
+    if (data.status === 'granted') return show(T[lang].granted);
+    if (data.status === 'denied') return show(T[lang].denied);
+    if (data.status !== 'pending') return show(T[lang].expired, true);
+    $('status').textContent = T[lang].ask; $('actions').hidden = false;
+  }
+  async function decide(decision) {
+    $('grant').disabled = $('deny').disabled = true;
+    const { ok, data } = await call({ action: 'decide', decision }).catch(() => ({ ok: false, data: {} }));
+    if (!ok) return show(data?.details?.status === 'expired' ? T[lang].expired : T[lang].error, true);
+    show(data.status === 'granted' ? T[lang].granted : T[lang].denied);
+  }
+  $('grant').onclick = () => decide('grant');
+  $('deny').onclick = () => decide('deny');
+  init();
+</script>
+</body>
+</html>
